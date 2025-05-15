@@ -1,0 +1,31 @@
+# Ignore environment files
+.env
+
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# Logs
+*.log
+logs/
+venv/
+env/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Jupyter Notebooks checkpoints (if any)
+.ipynb_checkpoints/
+
+# Pytest cache
+.pytest_cache/
+
+# MyPy / Coverage / Pylint
+.mypy_cache/
+coverage.xml
+htmlcov/
+.pylint.d/
+# VSCode or other IDE settings
+.vscode/
+.idea/
