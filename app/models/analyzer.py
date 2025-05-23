@@ -68,7 +68,7 @@ class AnnouncementAnalyzer:
 
     async def _process_batch(self, exchange: str, announcements: List[Dict]):
         """Handle a batch of announcements from one exchange"""
-
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
         delay_between_messages = 1.5
         new_announcements = await self.storage.bulk_check_new(exchange, announcements)
         
@@ -102,10 +102,17 @@ class AnnouncementAnalyzer:
                             f"📌 {announcement['title']}\n"
                             f"📊 Content: {announcement.get('content', announcement.get('description', ''))}\n"
                             f"⏰ {announcement['url']}\n")
-                    
+                    announcement_id = self.storage._generate_id(exchange, announcement["id"], announcement["publish_time"])
+                    keyboard = [
+            [
+                InlineKeyboardButton("Engineering", callback_data=f"label|engineering|{announcement_id}"),
+                InlineKeyboardButton("Trading", callback_data=f"label|trading|{announcement_id}")
+            ]
+        ]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
                     channel = "Trading channel" if predicted_label == "trading" else "Engineering channel"
                     print(f"Sending notification: {message} to {channel}")
-                    success = await self.notifier.send(message, channel=channel)
+                    success = await self.notifier.send(message, channel=channel, reply_markup = reply_markup)
                     if not success:
                         self.logger.warning(f"Failed to send notification for {announcement['title']}")
                     else:

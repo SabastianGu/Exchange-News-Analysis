@@ -12,7 +12,7 @@ import numpy as np
 
 class AnnouncementClassifier:
     # После первого запуска модель будет сохранена в папку model_assets и можно будет подгружать ее локально various_models/bert-base-uncased
-    def __init__(self, model_name: str = 'bert-base-uncased'): #download bert-base-uncased to model_assets folder, or use it from the web and leave just 'bert-base-uncased'
+    def __init__(self, model_name: str = 'model_assets/bert-base-uncased'): #download bert-base-uncased to model_assets folder, or use it from the web and leave just 'bert-base-uncased'
         self.tokenizer = BertTokenizer.from_pretrained(model_name)
         self.bert = TFBertModel.from_pretrained(model_name)
         self._build_model()
