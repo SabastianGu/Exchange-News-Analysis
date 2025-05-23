@@ -30,6 +30,7 @@ htmlcov/
 # VSCode or other IDE settings
 .vscode/
 .idea/
+
 #models
-./config/various_models/
-!model_assets
+config/various_models/
+model_assets/
