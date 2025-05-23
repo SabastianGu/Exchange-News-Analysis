@@ -5,15 +5,19 @@ from app.services.ByBitclient import BybitClient
 from app.core.model import AnnouncementClassifier
 from app.services.tlg_notifier import Notifier
 from app.storage.postgres_manager import AnnouncementStorage
+from app.services.forex_factory import ForexFactoryService
 from app.services.marketaux import MarketauxClient
 from config.settings import settings
 from typing import Dict, List
-from utils.json_helpers import ensure_serializable, safe_json_dumps
+import time
+from app.utilities.json_helpers import ensure_serializable, safe_json_dumps
 
 class AnnouncementAnalyzer:
     def __init__(self, storage: AnnouncementStorage):
         self.bybit = BybitClient()
         self.news_api = NewsAPIClient()
+        self.forex_factory = ForexFactoryService()
+        self.last_forex_sent = None
         self.marketaux =  MarketauxClient()
         self.model = AnnouncementClassifier()
         self.notifier = Notifier()
@@ -25,8 +29,25 @@ class AnnouncementAnalyzer:
         while True:
             print("about to check announcements")
             await self._check_announcements()
+            now = time.time()
+            if self.last_forex_sent is None or now - self.last_forex_sent >= 3600:
+                print("Sending horly forex update")
+                await self._send_forex_events()
+                self.last_forex_sent = now
             print("Check confirmed, going to sleep")
             await asyncio.sleep(interval_seconds)
+
+
+    async def _send_forex_events(self):
+        try:
+            message = await self.forex_factory.get_formatted_events()
+            if message:
+                await self.notifier.send(message, channel ='Trading channel')
+                print("✅ Forex factory update sent.")
+            else:
+                print("ℹ️ No Forex events to send.")
+        except Exception as e:
+            self.logger.error(f"Error sending ForexFactory message: {e}")
 
     async def _check_announcements(self):
         # Fetch from both exchanges in parallel
@@ -36,7 +57,6 @@ class AnnouncementAnalyzer:
             self.marketaux.fetch_announcements()
         )
 
-        # Process Bybit announcements
         if bybit_results:
             await self._process_batch("bybit", bybit_results)
         
@@ -48,7 +68,8 @@ class AnnouncementAnalyzer:
 
     async def _process_batch(self, exchange: str, announcements: List[Dict]):
         """Handle a batch of announcements from one exchange"""
-        # Check which announcements are new
+
+        delay_between_messages = 1.5
         new_announcements = await self.storage.bulk_check_new(exchange, announcements)
         
         if not new_announcements:
@@ -75,7 +96,6 @@ class AnnouncementAnalyzer:
             # Only notify high-confidence events
             if classification.confidence > 0.50 and classification.label not in ['irrelevant']:
                 try:
-                    # Get the predicted label (already determined by your model)
                     predicted_label = classification.label
                     
                     message = (f"🚨 New {predicted_label} announcement\n"
@@ -90,6 +110,7 @@ class AnnouncementAnalyzer:
                         self.logger.warning(f"Failed to send notification for {announcement['title']}")
                     else:
                         print("message sent successfully")
+                        await asyncio.sleep(delay_between_messages)
                 except Exception as e:
                     self.logger.error(f"Notification processing failed: {e}")
 

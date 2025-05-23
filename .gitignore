@@ -1,6 +1,7 @@
 # Ignore environment files
 .env
-
+#certificates
+certs/
 # Python cache files
 __pycache__/
 *.py[cod]
@@ -29,3 +30,6 @@ htmlcov/
 # VSCode or other IDE settings
 .vscode/
 .idea/
+#models
+./config/various_models/
+!model_assets

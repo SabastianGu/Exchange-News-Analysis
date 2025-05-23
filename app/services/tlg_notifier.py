@@ -1,6 +1,7 @@
 import logging
 from typing import List, Dict
 import asyncpg
+import asyncio
 from telegram import Update, BotCommand, BotCommandScopeDefault
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler,
@@ -13,12 +14,13 @@ class Notifier:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.db_pool = None
+        self.polling_task = None
         self.chat_ids = {
             "Trading channel": settings.TELEGRAM_TRADING_CHAT_ID,
             "Engineering channel": settings.TELEGRAM_ENGINEERING_CHAT_ID
         }
         self.forex_factory = ForexFactoryService()
-
+        self.ngrok_url = None
         self.application = ApplicationBuilder() \
             .token(settings.TELEGRAM_BOT_TOKEN) \
             .build()
@@ -134,18 +136,83 @@ class Notifier:
         else:
             await query.edit_message_text("Unknown command.")
 
+
     async def start(self):
-        print("Tlg bot starting services")
+        print("📡 Telegram bot is starting...")
         await self.connect_db()
         await self.application.initialize()
         await self.application.start()
-        await self.application.updater.start_polling()
-        print("Bot successfully started working")
+
+        # Start polling as a background task
+        self.polling_task = asyncio.create_task(self.application.updater.start_polling())
+        await self.polling_task
+        print("✅ Bot is now polling for updates")
 
     async def stop(self):
-        if self.application.updater.running:
-            await self.application.updater.stop()
+        if self.polling_task:
+            self.polling_task.cancel()
+            try:
+                await self.polling_task
+            except asyncio.CancelledError:
+                print("🛑 Polling task cancelled")
+
+        # Stop updater if it exists and is running
+        updater = self.application.updater
+        if updater is not None and updater.running:
+            await updater.stop()
+
         await self.application.stop()
         await self.application.shutdown()
+
         if self.db_pool:
             await self.db_pool.close()
+
+        print("📴 Bot stopped")
+
+
+
+
+
+# Для тестирования вебхука
+    #def _start_ngrok(self):
+    #    from pyngrok import conf
+    #    conf.get_default().auth_token = settings.NGROK_AUTHTOKEN
+    #    public_url = ngrok.connect(settings.NGROK_PORT, bind_tls = True)
+    #    print(f"🔗 Ngrok tunnel started at: {public_url}")
+    #    return public_url
+
+    #async def start(self):
+    #    print("📡 Telegram bot is starting (webhook mode)...")
+    #    await self.connect_db()
+    #    await self.application.initialize()
+    #    if settings.USE_NGROK:
+    #        self.ngrok_url = self._start_ngrok()
+    #    else:
+    #        webhook_url = f"{settings.TELEGRAM_WEBHOOK_BASE_URL}{settings.TELEGRAM_WEBHOOK_PATH}"
+    #    await self.application.bot.set_webhook(
+    #        url=webhook_url,
+    #        secret_token=settings.TELEGRAM_WEBHOOK_SECRET
+    #    )
+
+    #    await self.application.start()
+    #    await self.application.updater.start_webhook(
+    #        listen="0.0.0.0",
+    #        port=settings.NGROK_PORT if settings.USE_NGROK else 8000,
+    #        webhook_path=settings.TELEGRAM_WEBHOOK_PATH,
+    #        secret_token=settings.TELEGRAM_WEBHOOK_SECRET,
+    #    )
+    #    print(f"✅ Webhook started at {webhook_url}")
+
+    #async def stop(self):
+    #    if self.polling_task:
+    #        self.polling_task.cancel()
+    #        try:
+    #            await self.polling_task
+    #        except asyncio.CancelledError:
+    #            print("🛑 Polling task cancelled")
+
+    #    await self.application.stop()
+    #    await self.application.shutdown()
+    #    if self.db_pool:
+    #        await self.db_pool.close()
+    #    print("📴 Bot stopped")

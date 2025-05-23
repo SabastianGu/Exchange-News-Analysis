@@ -7,6 +7,7 @@ from .BaseClient import BaseExchangeClient
 from config.settings import settings
 import hashlib
 
+#Нужно переписать чтоб выдавало новости каждый час или каждые пол часа по выбора пользователя
 
 class NewsAPIClient(BaseExchangeClient):
     def __init__(self, api_key: Optional[str] = None):

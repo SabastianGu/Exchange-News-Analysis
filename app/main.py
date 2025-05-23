@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import asyncio
 import logging
+
 from app.models.analyzer import AnnouncementAnalyzer
 from app.api.endpoints import router
 from app.storage.postgres_manager import AnnouncementStorage
@@ -13,14 +14,17 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 Starting application...")
-    
+
+    # Initialize components
     storage = AnnouncementStorage()
     await storage.connect()
-    print("Connected to DataBase successfully")
+    print("✅ Connected to PostgreSQL")
+
     telegram_bot = Notifier()
     analyzer = AnnouncementAnalyzer(storage)
     analyzer.notifier = telegram_bot
 
+    # Attach state
     app.state.telegram_bot = telegram_bot
     app.state.analyzer = analyzer
 
@@ -28,13 +32,13 @@ async def lifespan(app: FastAPI):
     try:
         await telegram_bot.start()
         app.state.analyzer_task = asyncio.create_task(analyzer.run(interval_seconds=300))
-        logger.info("✅ Services started")
+        logger.info("✅ Analyzer and Telegram bot started")
         yield
     except Exception as e:
         logger.error(f"❌ Startup failed: {e}")
         raise
     finally:
-        logger.info("🛑 Shutting down...")
+        logger.info("🛑 Shutting down services...")
         if hasattr(app.state, 'analyzer_task'):
             app.state.analyzer_task.cancel()
             try:
@@ -52,7 +56,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# CORS Setup
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -63,24 +67,24 @@ app.add_middleware(
 @app.get("/health")
 async def health_check():
     return {
-        "status": "healthy",
         "analyzer_running": hasattr(app.state, 'analyzer'),
         "telegram_bot_running": hasattr(app.state, 'telegram_bot')
     }
 
 @app.get("/latest")
 async def get_latest_analyzed():
-    """Get the 10 most recent analyzed announcements"""
     if not hasattr(app.state, 'analyzer'):
         raise HTTPException(status_code=503, detail="Analyzer not initialized")
 
     try:
         async with app.state.analyzer.storage.pool.acquire() as conn:
             records = await conn.fetch(
-                """SELECT title, publish_time, content, classification 
+                """
+                SELECT title, publish_time, content, classification 
                 FROM announcements
                 WHERE classification IN ('trading', 'engineering')
-                ORDER BY publish_time DESC LIMIT 15"""
+                ORDER BY publish_time DESC LIMIT 15
+                """
             )
 
         return [
@@ -93,8 +97,8 @@ async def get_latest_analyzed():
             for r in records
         ]
     except Exception as e:
-        logger.error(f"Failed to fetch latest announcements: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch announcements")
+        logger.error(f"Failed to fetch announcements: {e}")
+        raise HTTPException(status_code=500, detail="Database error")
 
-# Include your API router
+# Include API routers
 app.include_router(router, prefix="/api")

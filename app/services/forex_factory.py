@@ -33,19 +33,26 @@ class ForexFactoryService:
             return "No Forex Factory data available today"
 
         formatted = ["📅 *Today's Forex Factory Calendar*"]
-        for event in events[:10]:  # Limit to 10 most important events
-            time_str = datetime.strptime(event['time'], "%H:%M").strftime("%I:%M %p") if event.get('time') else "All Day"
-            
-            formatted.append(
-                f"\n⏰ *{time_str}* - {event.get('title', 'No title')}\n"
-                f"• *Currency*: {event.get('currency', 'N/A')}\n"
-                f"• *Impact*: {event.get('impact', 'N/A')}\n"
-                f"• *Actual*: {event.get('actual', 'N/A')}\n"
-                f"• *Forecast*: {event.get('forecast', 'N/A')}\n"
-                f"• *Previous*: {event.get('previous', 'N/A')}"
-            )
-
-        return "\n".join(formatted)
+        for event in events[:3]:
+            time_str = "All Day"
+            if event.get('Date'):
+                try:
+                    dt = datetime.strptime(event['Date'], "%Y.%m.%d %H:%M:%S")
+                    time_str = dt.strftime("%I:%M %p")
+                except ValueError as e:
+                    logger.warning(f"Failed to parse date: {event['Date']}, error: {e}")
+                #Обработать случаи, когда сам сайт не подгружает данные Not Loaded
+                formatted.append(
+                    f"\n⏰ *{time_str}* - {event.get('Name', 'No title')}\n"
+                    f"• *Currency*: {event.get('Currency', 'N/A')}\n"
+                    f"• *Actual*: {event.get('Actual', 'N/A')}\n"
+                    f"• *Forecast*: {event.get('Forecast', 'N/A')}\n"
+                    f"• *Previous*: {event.get('Previous', 'N/A')}\n"
+                    f"• *Outcome*: {event.get('Outcome', 'N/A')}\n"
+                    f"• *Strength*: {event.get('Strength', 'N/A')}\n"
+                    f"• *Quality*: {event.get('Quality', 'N/A')}"
+                )
+            return "\n".join(formatted)
 
     async def send_to_telegram(self):
         from .tlg_notifier import Notifier as notifier

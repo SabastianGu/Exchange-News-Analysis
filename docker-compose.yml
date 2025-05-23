@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  web:
+    build: .
+    container_name: exchange-news-app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      - .:/app
+    expose:
+      - "8000"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    ports:
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - web
+    restart: always
+
+  db:
+    image: postgres:15
+    container_name: postgres-db 
+    environment:
+      POSTGRES_USER: saba
+      POSTGRES_PASSWORD: Amatoryy123100
+      POSTGRES_DB: news_analyzer
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saba -d news_analyzer"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    restart: always
+
+volumes:
+  postgres_data:

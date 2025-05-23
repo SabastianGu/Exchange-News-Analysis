@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tf_keras.layers import Input, Dense
+from tf_keras.layers import Input, Dense, Dropout
 from tf_keras.models import Model
 from transformers import BertTokenizer, TFBertModel
 from app.core.schemas import PredictionResponse, BatchPredictionResponse, PredictionDetails
@@ -11,9 +11,9 @@ import numpy as np
 
 
 class AnnouncementClassifier:
-    def __init__(self, model_name: str = 'bert-base-uncased'):
-        self.tokenizer = BertTokenizer.from_pretrained(model_name)
-        self.bert = TFBertModel.from_pretrained(model_name)
+    def __init__(self, model_name: str = 'model_assets/bert-base-uncased'):
+        self.tokenizer = BertTokenizer.from_pretrained(model_name, local_files_only = True)
+        self.bert = TFBertModel.from_pretrained(model_name, local_files_only = True)
         self._build_model()
         self.label_map = {
             0: "trading",
@@ -27,7 +27,8 @@ class AnnouncementClassifier:
 
         bert_output = self.bert(input_ids, attention_mask=attention_mask)
         pooled_output = bert_output.pooler_output
-        outputs = Dense(3, activation='softmax')(pooled_output)
+        x = Dropout(0.3)(pooled_output)
+        outputs = Dense(3, activation='softmax')(x)
 
         self.model = Model(inputs=[input_ids, attention_mask], outputs=outputs)
 
@@ -133,6 +134,7 @@ class AnnouncementClassifier:
         return BatchPredictionResponse(results=results)
 
     def save_pretrained(self, save_dir: str):
+        save_dir = './config/various_models'
         self.model.save(save_dir, save_format='tf')
         self.tokenizer.save_pretrained(save_dir)
 
