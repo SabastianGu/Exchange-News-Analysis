@@ -90,7 +90,8 @@ class AnnouncementAnalyzer:
             await self.storage.save_announcement(
                 exchange=exchange,
                 announcement=announcement,
-                classification=classification
+                classification=classification,
+                db_id = item['storage_id']
             )
 
             # Only notify high-confidence events
@@ -102,7 +103,7 @@ class AnnouncementAnalyzer:
                             f"📌 {announcement['title']}\n"
                             f"📊 Content: {announcement.get('content', announcement.get('description', ''))}\n"
                             f"⏰ {announcement['url']}\n")
-                    announcement_id = self.storage._generate_id(exchange, announcement["id"], announcement["publish_time"])
+                    announcement_id = item['storage_id']
                     keyboard = [
             [
                 InlineKeyboardButton("Engineering", callback_data=f"label|engineering|{announcement_id}"),
